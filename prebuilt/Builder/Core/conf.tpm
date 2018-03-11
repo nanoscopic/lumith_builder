@@ -1,0 +1,157 @@
+package Builder::Core::conf;
+use strict;
+use warnings;#@1
+my $SYS;
+
+            sub new {
+                my $class = shift;
+                my %params = @_;
+                my $self = bless {}, $class;
+                $SYS = $params{'sys'};
+
+                
+                $self->{'_conf'} = $params{'conf'} || 0;
+                $self->init(%params) if( defined( &Builder::Core::conf::init ) && !$self->{'skipInit'} );
+                return $self;
+            }sub doConf { #@5
+    my $self=shift;
+  my %_params = @_;
+    my $modInstances = $_params{'modInstances'};#@6
+    my $mods = $_params{'mods'};#@7
+    my $conf = $_params{'conf'};#@8
+    my $hasConf = $_params{'hasConf'};#@9
+    my %doneConf;#@15
+    my %depHash;#@16
+    for my $modname ( @$mods ) {#@17
+        my $depinfo = $depHash{ $modname } = {};#@18
+        my $modConf = $conf->{ $modname };#@19
+        $self->walkConf( $depinfo, $modConf );#@20
+    }#@21
+    my $passes = $self->resolvePasses( \%depHash, $mods );#@23
+    for my $pass ( @$passes ) {#@24
+        my $passMods = $pass->{'mods'};#@25
+        for my $modname ( keys %$passMods ) {#@26
+            my $modConf = $conf->{ $modname };#@27
+            $self->walkConfModify( $conf, $modConf );#@28
+        }#@29
+    }#@30
+    for my $modname ( @$mods ) {#@32
+        if( $hasConf->{ $modname } ) {#@33
+            $modInstances->{ $modname }->conf( $conf->{ $modname } );#@34
+        }#@35
+    }#@36
+}
+sub resolvePasses { #@39
+    my $self=shift;
+    my $depHash = shift;
+    my $mods = shift;
+  my %_params = @_;
+    my %finishedMods;#@40
+    my @passes;#@41
+    my %curpass;#@42
+    for( my $i=0;$i<10;$i++ ) {#@43
+       my $passMods = $curpass{'mods'} = {}; # mods on this pass#@44
+       for my $modname ( @$mods ) {#@46
+           my $depsDone = 1;#@47
+           my $depinfo = $depHash->{ $modname };#@48
+           for my $key ( keys %$depinfo ) {#@49
+               if( !$finishedMods{ $key } ) {#@50
+                   $depsDone = 0;#@51
+                   last;#@52
+               }#@53
+           }#@54
+           if( $depsDone ) {#@55
+               $passMods->{ $modname } = 1;#@57
+           }#@58
+       }#@59
+       last if( !%$passMods ); # nothing in this pass; we are done#@60
+       for my $modname ( keys %$passMods ) {#@61
+           $finishedMods{ $modname } = 1;#@62
+       }#@63
+       push( @passes, \%curpass );#@64
+    }#@65
+    return \@passes;#@66
+}
+sub walkConf { #@69
+    my $self=shift;
+    my $depinfo = shift;
+    my $conf = shift;
+  my %_params = @_;
+    my $rType = ref( $conf );#@70
+    return if( !$rType || ( $rType ne 'HASH' && $rType ne 'ARRAY' ) );#@71
+    if( $rType eq 'ARRAY' ) {#@72
+        for my $aConf ( @$conf ) {#@73
+            $self->walkConf( $depinfo, $aConf );#@74
+        }#@75
+        return;#@76
+    }#@77
+    for my $key ( keys %$conf ) {#@79
+        my $val = $conf->{ $key };#@80
+        if( ref( $val ) ) {#@81
+            $self->walkConf( $depinfo, $val );#@82
+        }#@83
+        else {#@84
+            if( $val =~ m/\*\{/ ) { # has a variable; check it#@86
+                $val =~ s/\*\{mod_([a-zA-Z0-9_])\.([a-zA-Z0-9.]+)\}/$self->noteDep( $depinfo, $1, $2 )/ge; # global eval#@87
+            }#@88
+        }#@89
+    }#@90
+}
+sub walkConfModify { #@93
+    my $self=shift;
+    my $allConf = shift;
+    my $conf = shift;
+  my %_params = @_;
+    my $rType = ref( $conf );#@94
+    return if( !$rType || ( $rType ne 'HASH' && $rType ne 'ARRAY' ) );#@95
+    if( $rType eq 'ARRAY' ) {#@96
+        for my $aConf ( @$conf ) {#@97
+            $self->walkConfModify( $allConf, $aConf );#@98
+        }#@99
+        return;#@100
+    }#@101
+    for my $key ( keys %$conf ) {#@103
+        my $val = $conf->{ $key };#@104
+        if( ref( $val ) ) {#@105
+            $self->walkConfModify( $allConf, $val );#@106
+        }#@107
+        else {#@108
+            if( $val =~ m/\*\{/ ) { # has a variable; check it#@110
+                $val =~ s/\*\{mod_([a-zA-Z0-9_])\.([a-zA-Z0-9.]+)\}/$self->fillDep( $allConf, $1, $2 )/ge; # global eval#@111
+                $conf->{ $key } = $val;    #@112
+            }#@113
+        }#@114
+    }#@115
+}
+sub noteDep { #@118
+    my $self=shift;
+    my $depinfo = shift;
+    my $modname = shift;
+    my $confPath = shift;
+  my %_params = @_;
+    $depinfo->{ $modname } = 1;#@119
+    return "*{mod_$modname.$confPath}"; # return the same thing so as not to alter#@120
+}
+sub fillDep { #@123
+    my $self=shift;
+    my $allConf = shift;
+    my $modname = shift;
+    my $confPath = shift;
+  my %_params = @_;
+    my $modConf = $allConf->{ $modname };#@124
+    die "Cannot fetch conf for $modname - expression=mod_$modname.$confPath" if( !$modConf );#@125
+    my @pathParts = split( '.', $confPath );#@126
+    my $confLoc = $modConf;#@127
+    for my $part ( @pathParts ) {#@128
+        $confLoc = $confLoc->{ $part };#@129
+        if( !$confLoc ) {#@130
+            die "Cannot fetch conf for $modname - expression=mod_$modname.$confPath - dead end";#@131
+        }#@132
+    }#@133
+    if( ref( $confLoc ) ) {#@134
+        use Data::Dumper;#@136
+        print Dumper( $confLoc );#@137
+        die "Conf for $modname - expression=mod_$modname.$confPath - not a string";#@138
+    }#@139
+    return $confLoc;#@140
+}

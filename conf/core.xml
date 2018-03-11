@@ -1,0 +1,30 @@
+<xml name="Core" namespace="Melon/Core">
+    <module name="tags" file="/home/user/lumith_builder/source_core/Tags.pm">
+    </module>
+        
+    <module name="templates" file="/home/user/lumith_builder/source_core/Templates.pm">
+        <cpan name="File::Slurp" />
+    </module>
+    
+    <module name="api" file="/home/user/lumith_builder/source_core/Api.pm">
+        <cpan name="JSON::XS" />
+    </module>
+
+    <module name="log" file="/home/user/lumith_builder/source_core/Log.pm">
+        <cpan name="Time::HiRes" />
+    </module>
+    
+    <module name="uuid" file="/home/user/lumith_builder/source_core/UUID.pm">
+        <cpan name="Data::UUID" />
+    </module>
+    
+    <module name="conf" file="/home/user/lumith_builder/source_core/Conf.pm">
+    </module>
+    
+    <module name="json" file="/home/user/lumith_builder/source_core/Json.pm">
+    </module>
+    
+    <!-- This system module MUST come last -->
+    <module name="systemx" file="/home/user/lumith_builder/source_shared/Systemx.pm">
+    </module>
+</xml>

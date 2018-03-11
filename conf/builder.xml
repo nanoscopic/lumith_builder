@@ -1,0 +1,53 @@
+<xml name="MelonBuilder" namespace="Melon/Builder">
+    <system name="core2" file="systems/BCore2.xml">
+        <import mod="log"/>
+        <import mod="xml"/>
+        <import mod="templates"/>
+        <import mod="uuid" />
+    </system>
+    
+    <module name="builder" file="mod_builder/Builder.pm">
+        <cpan name="XML::Bare" qw="forcearray"/>
+        <cpan name="File::Slurp"/>
+        <cpan name="Data::Dumper"/>
+        <cpan name="Carp"/>
+    </module>
+    
+    <module name="subwriter" file="mod_builder/SubWriter.pm">
+        <cpan name="Data::Dumper"/>
+    </module>
+    
+    <module name="taghandlers" file="mod_builder/TagHandlers.pm">
+        <cpan name="Data::Dumper"/> 
+        <cpan name="Carp"/>
+        <cpan name="XML::Bare" qw="forcearray"/>
+    </module>
+    
+    <module name="tagactions" file="mod_builder/TagActions.pm">
+        <cpan name="Data::Dumper"/>
+        <cpan name="File::Slurp"/>
+    </module>
+    
+    <module name="cmdline" file="mod_builder/CmdLine.pm">
+    </module>
+    
+    <module name="systemgen" file="mod_builder/SystemGen.pm">
+        <cpan name="Cwd" qw="abs_path"/>
+        <cpan name="File::Slurp"/>
+        <cpan name="XML::Bare" qw="forcearray"/>
+    </module>
+    
+    <module name="tagsystem" file="mod_builder/TagSystem.pm">
+        <cpan name="Data::Dumper"/>
+        <cpan name="XML::Bare" qw="forcearray"/>
+    </module>
+    
+    <module name="versiontracker" file="mod_builder/VersionTracker.pm">
+        <cpan name="File::Slurp"/>
+        <cpan name="Digest::MD5" qw="md5_hex"/>
+    </module>
+
+    <!-- This system module MUST come last -->
+    <module name="systemx" file="mod/Systemx.pm">
+    </module>
+</xml>

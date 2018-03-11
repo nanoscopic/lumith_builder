@@ -1,0 +1,16 @@
+<xml name="Core2" namespace="Melon/Core2">
+    <system name="core" file="systems/BCore.xml">
+        <import mod="api"/>
+        <import mod="log"/>
+        <import mod="templates" />
+        <import mod="uuid" />
+    </system>
+    
+    <module name="xml" file="source_core2/XML.pm">
+        <cpan name="Carp" />
+    </module>
+   
+    <!-- This system module MUST come last -->
+    <module name="systemx" file="source_shared/Systemx.pm">
+    </module>
+</xml>

@@ -1,0 +1,590 @@
+package Builder::Core::templates;
+use File::Slurp ;
+use strict;
+use warnings;#@1
+my $SYS;
+
+            sub new {
+                my $class = shift;
+                my %params = @_;
+                my $self = bless {}, $class;
+                $SYS = $params{'sys'};
+
+                
+                $self->{'_conf'} = $params{'conf'} || 0;
+                $self->init(%params) if( defined( &Builder::Core::templates::init ) && !$self->{'skipInit'} );
+                return $self;
+            }use Digest::MD5 qw/md5_hex/;#@5
+sub init { #@7
+    my $self=shift;
+  my %_params = @_;
+    $self->{'tags'} = {#@8
+        var => { sub => \&tpl_var, obj => $self },#@9
+        varq => { sub => \&tpl_varq, obj => $self },#@10
+        dest => { sub => \&tpl_dest, obj => $self },#@11
+        code => { sub => \&tpl_code, obj => $self },#@12
+        dump => { sub => \&tpl_dump, obj => $self }#@13
+    };#@14
+    my $tpl_pm_dir = $self->{'tpl_pm_dir'} = "/tmp/tpl_pm";#@15
+    $self->{'tpl_hash'} = {};#@16
+    $self->{'tpl_refs'} = {};#@17
+    $self->{'lang'} = 'perl';#@18
+    $self->load_cached_templates();#@19
+    if( ! -e $tpl_pm_dir ) {#@21
+        mkdir $tpl_pm_dir;#@22
+    }#@23
+}
+sub tpl_dest { #@26
+    my $self=shift;
+    my $tag = shift;
+    my $in = shift;
+    my $out = shift;
+  my %_params = @_;
+    my $lang = $self->{'lang'};
+    my $mod_urls = $self->{'mod_urls'};
+    my $pageName = $tag->{'page'};#@28
+    if( $lang eq 'perl' ) {#@29
+        return "  $out .= \$mod_urls->genDest( page => '$pageName' );\n";#@30
+    }#@31
+    elsif( $lang eq 'js' ) {#@32
+        return "  $out += \$mod_urls.genDest( { page: '$pageName' } );\n";#@33
+    }#@34
+}
+sub tpl_var { #@37
+    my $self=shift;
+    my $tag = shift;
+    my $in = shift;
+    my $out = shift;
+  my %_params = @_;
+    my $lang = $self->{'lang'};
+    my $varName = $tag->{'name'};#@39
+    if( $lang eq 'perl' ) {#@40
+        if( $varName eq 'else' ) {#@41
+            return "\n} else {\n";#@42
+        }#@43
+        if( $in eq '' || $tag->{'direct'} ) {#@44
+            return "  $out .= \$$varName;\n";#@45
+        }#@46
+        else {#@47
+            return "  $out .= ${in}{'$varName'};\n";#@48
+        }#@49
+    }#@50
+    elsif( $lang eq 'js' ) {#@51
+        if( $varName eq 'else' ) {#@52
+            return "\n} else {\n";#@53
+        }#@54
+        if( $in eq '' || $tag->{'direct'} ) {#@55
+            return "  $out += $varName;\n";#@56
+        }#@57
+        else {#@58
+            return "  $out += ${in}.$varName;\n";#@59
+        }#@60
+    }#@61
+use Sub::Identify qw/sub_name/;#@63
+use Scalar::Util qw/blessed/;#@64
+}
+sub dump { #@65
+    my $self=shift;
+    my $ob = shift;
+  my %_params = @_;
+    my $className = blessed( $ob );#@66
+    return $className if( $className );#@67
+    my $rtype = ref( $ob );#@68
+    if( $rtype eq 'CODE' ) {#@69
+        return sub_name( $ob );#@70
+    }#@71
+    return substr( Dumper( $ob ), 8 );#@72
+}
+sub tpl_dump { #@75
+    my $self=shift;
+    my $tag = shift;
+    my $in = shift;
+    my $out = shift;
+  my %_params = @_;
+    my $lang = $self->{'lang'};
+    my $mod_templates = $self->{'mod_templates'};
+    my $varName = $tag->{'name'};#@77
+    if( $lang eq 'perl' ) {#@78
+        if( $in eq '' || $tag->{'direct'} ) {#@79
+            return "  $out .= \$mod_templates->dump( \$$varName );\n";#@80
+        }#@81
+        else {#@82
+            return "  $out .= \$mod_templates->dump( ${in}{'$varName'} );\n";#@83
+        }#@84
+    }#@85
+    elsif( $lang eq 'js' ) {#@86
+        if( $in eq '' || $tag->{'direct'} ) {#@87
+            return "  out += \$mod_templates.dump( $varName );\n";#@88
+        }#@89
+        else {#@90
+            return "  $out += \$mod_templates.dump( ${in}.$varName );\n";#@91
+        }#@92
+    }#@93
+}
+sub escape { #@96
+    my $self=shift;
+    my $str = shift;
+  my %_params = @_;
+    use Data::Dumper;#@97
+    my $dump = Dumper( $str );#@98
+    my $res = substr( $dump, 8, -2 );#@99
+    $res =~ s/\n/'."\\n".'/g; # hackily inline carriage returns so that the code looks less messy#@100
+    $res =~ s/\.''$//; # strip trailing addition of empty string because it is pointless ( caused by previous line )#@101
+    return $res;#@102
+}
+sub escapeForJS { #@107
+    my $self=shift;
+    my $str = shift;
+  my %_params = @_;
+    use Data::Dumper;#@108
+    my $dump = Dumper( $str );#@109
+    my $res = substr( $dump, 8, -2 );#@110
+    $res =~ s/\n/'+"\\n"+'/g; # hackily inline carriage returns so that the code looks less messy#@111
+    $res =~ s/\+''$//; # strip trailing addition of empty string because it is pointless ( caused by previous line )#@112
+    return $res;#@113
+}
+sub tpl_varq { #@118
+    my $self=shift;
+    my $tag = shift;
+    my $in = shift;
+    my $out = shift;
+  my %_params = @_;
+    my $lang = $self->{'lang'};
+    my $mod_templates = $self->{'mod_templates'};
+    my $varName = $tag->{'name'};#@120
+    my $valstr;#@121
+    if( $lang eq 'perl' ) {#@122
+        if( $in eq '' ) {#@123
+            $valstr = "\$$varName";#@124
+        }#@125
+        else {#@126
+            $valstr = "${in}{'$varName'}";#@127
+        }#@128
+        return "  $out .= \$mod_templates->escape( $valstr );\n";#@129
+    }#@130
+    if( $lang eq 'js' ) {#@131
+        if( $in eq '' ) {#@132
+            $valstr = "$varName";#@133
+        }#@134
+        else {#@135
+            $valstr = "${in}.$varName";#@136
+        }#@137
+        return "  $out += \$mod_templates.escape( $valstr );\n";#@138
+    }#@139
+}
+sub tpl_code { #@142
+    my $self=shift;
+    my $tag = shift;
+    my $in = shift;
+    my $out = shift;
+  my %_params = @_;
+    my $lang = $self->{'lang'};
+    my $data = $tag->{'data'};#@144
+    if( $data =~ m/^\+/ ) {#@145
+        $data = substr( $data, 1 );#@146
+        if( $lang eq 'perl' ) {#@147
+            return "  $out .= ($data);";#@148
+        }#@149
+        if( $lang eq 'js' ) {#@150
+            return "  $out += ($data);";#@151
+        }#@152
+    }#@153
+    return "$data\n";#@154
+}
+sub register_tpl_tag { #@157
+    my $self=shift;
+    my $tplName = shift;
+    my $callback = shift;
+    my $callbackObj = shift;
+  my %_params = @_;
+    $self->{'tags'}{ $tplName } = { sub => $callback, obj => $callbackObj };#@158
+}
+sub run_tpl_tag { #@161
+    my $self=shift;
+    my $key = shift;
+    my $node = shift;
+    my $invar = shift;
+    my $outvar = shift;
+  my %_params = @_;
+    my $callback = $self->{'tags'}{ $key };#@162
+    die "Invalid template tag $key" if( !$callback );#@163
+    my $sub = $callback->{'sub'};#@164
+    my $obj = $callback->{'obj'};#@165
+    return $sub->( $obj, $node, $invar, $outvar );#@166
+}
+sub tag_template_tag { #@169
+    my $self=shift;
+  my %_params = @_;
+    my $mod_templates = $self->{'mod_templates'};
+    my $tag = $_params{'metacode'};#@172
+    my $builder = $_params{'builder'};#@174
+    my $pageName = $tag->{'name'};#@176
+    my $subName = $builder->{'cursub'}{'name'};#@177
+    return [#@179
+        { action => 'add_var', self => 'mod_templates', var => 'tmpl' },#@180
+        { action => 'add_sub_text', sub => 'init', text => "\#@181
+            \$mod_templates->register_tpl_tag( '$pageName', \\&$subName, \$self );\#@182
+        " }#@183
+    ];#@184
+}
+sub load_cached_templates { #@187
+    my $self=shift;
+  my %_params = @_;
+    my $tpl_pm_dir = $self->{'tpl_pm_dir'};
+    return if( ! -e $tpl_pm_dir );#@190
+    opendir( my $dh, $tpl_pm_dir );#@191
+    my @files = readdir( $dh );#@192
+    closedir( $dh );#@193
+    for my $file ( @files ) {#@195
+        next if( $file =~ m/^\.+$/ );#@196
+        $self->load_cached_template( "$tpl_pm_dir/$file", $file );#@197
+    }#@198
+}
+sub load_cached_template { #@201
+    my $self=shift;
+    my $path = shift;
+    my $file = shift;
+  my %_params = @_;
+    my $tpl_refs = $self->{'tpl_refs'};
+    my $lang = $self->{'lang'};
+    require $path;#@205
+    if( $file =~ m/^tpl_(.+)_([A-Za-z0-9]+)$/ ) {#@206
+        my $id = $1;#@207
+        my $shortRef = $2;#@208
+        my $ref = "TPL_${id}_$shortRef"->new();#@210
+        $tpl_refs->{ $shortRef } = 1;#@211
+        my $info = $ref->info();#@213
+        $info->{'ref'} = $ref;#@214
+        $info->{'loaded'} = 1;#@215
+        my $md5 = $info->{'md5'};#@216
+        my $tpls = $self->{'tpl_hash'};#@218
+        my $tpl_set = $tpls->{$id};#@219
+        if( !$tpl_set ) {#@220
+            $tpl_set = $tpls->{$id} = { id => $id, lang => $lang };#@221
+        }#@222
+        $tpl_set->{ $md5 } = $info;#@224
+    }   #@225
+}
+sub fetch_template { #@228
+    my $self=shift;
+  my %_params = @_;
+    my $lang = $_params{'lang'};#@229
+    my $source = $_params{'source'};#@230
+    my $id = $_params{'id'};#@231
+    my $tpls = $self->{'tpl_hash'};#@233
+    my $tpl_set = $tpls->{$id};#@234
+    if( !$tpl_set ) {#@235
+        $tpl_set = $tpls->{$id} = { id => $id, lang => $lang };#@236
+    }#@237
+    my $md5 = md5_hex( $source );#@239
+    my $tpl = $tpl_set->{$md5};#@241
+    if( !$tpl ) {#@242
+        my $shortRef = $self->new_shortRef( $md5 );#@243
+        my $file;#@244
+        if( $lang eq 'perl' ) {#@245
+            $file = "tpl_${id}_$shortRef.pm";#@246
+        }#@247
+        if( $lang eq 'js' ) {#@248
+            $file = "tpl_${id}_$shortRef.js";#@249
+        }#@250
+        $tpl = $tpl_set->{$md5} = {#@251
+            file => $file,#@252
+            loaded => 0,#@253
+            ref => 0,#@254
+            generated => time(),#@255
+            shortRef => $shortRef,#@256
+            id => $id,#@257
+            md5 => $md5#@258
+        };#@259
+    }#@260
+    else {#@261
+        return $tpl;#@262
+    }#@263
+    if( $tpl->{'ref'} ) { # template is already loaded in memory ( for perl at least )#@265
+        return $tpl;#@266
+    }#@267
+    my $filename = $tpl->{'file'};#@272
+    my $file = $self->{'tpl_pm_dir'} . '/' . $filename;#@273
+    my $shortRef = $tpl->{'shortRef'};#@274
+        my $code;#@277
+        if( $lang eq 'perl' ) {#@278
+            $code = $self->template_to_code( $source, 0, 0, '$out', '$invar->' );#@279
+        }#@280
+        if( $lang eq 'js' ) {#@281
+            $code = $self->template_to_code( $source, 0, 0, 'out', 'invar' );#@282
+        }#@283
+        my $flatinfo = { %$tpl };#@285
+        delete $flatinfo->{'ref'};#@286
+        delete $flatinfo->{'loaded'};#@287
+        my $flatText;#@288
+        if( $lang eq 'perl' ) {#@289
+            $flatText = XML::Bare::Object::xml( 0, $flatinfo );#@290
+        }#@291
+        if( $lang eq 'js' ) {#@292
+        }#@294
+        my $out;#@296
+        if( $lang eq 'perl' ) {#@297
+            $out = "\#@298
+            package TPL_${id}_$shortRef;\#@299
+            use XML::Bare;\#@300
+            sub new {\#@301
+                my \$class = shift;\#@302
+                my \%params = \@_;\#@303
+                my \$self = bless {}, \$class;\#@304
+                return \$self;\#@305
+            }\#@306
+            sub info {\#@307
+                my ( \$ob, \$xml ) = XML::Bare::simple( text => " . $self->escape( $flatText ) . " );\#@308
+                return \$xml;\#@309
+            }\#@310
+            sub run {\#@311
+                my ( \$self, \$invar ) = \@_;\#@312
+                $code\#@313
+                return \$out;\#@314
+            }\#@315
+            1;\#@316
+            ";#@317
+        }#@318
+        if( $lang eq 'js' ) {#@319
+            $out = $code;#@321
+        }#@322
+        write_file( $file, $out );#@323
+    if( $lang eq 'perl' ) {#@326
+        require $file;#@327
+        $tpl->{'ref'} = "TPL_${id}_$shortRef"->new();#@328
+    }#@329
+    if( $lang eq 'js' ) {#@330
+        $tpl->{'ref'} = 1;#@332
+    }#@333
+    return $tpl;#@335
+}
+sub new_shortRef { #@338
+    my $self=shift;
+    my $md5 = shift;
+  my %_params = @_;
+    my $tpl_refs = $self->{'tpl_refs'};
+    my $len = length( $md5 );#@340
+    for( my $i=1;$i<=$len;$i++ ) {#@341
+        my $part = substr( $md5, 0, $i );#@342
+        if( !$tpl_refs->{ $part } ) {#@343
+            $tpl_refs->{ $part } = 1;#@344
+            return $part;#@345
+        }#@346
+    }#@347
+    return $md5;#@348
+}
+sub tag_template { #@351
+    my $self=shift;
+  my %_params = @_;
+    my $lang = $self->{'lang'};
+    my $modXML = $_params{'modXML'};#@354
+    my $tag = $_params{'metacode'};#@355
+    my $modInfo = $_params{'modInfo'};#@356
+    my $ln = $_params{'ln'};#@357
+    my $invar;#@359
+    my $outvar = '';#@360
+    my $append = 0;#@361
+    if( exists $tag->{'append'} ) {#@362
+        $append = 1;#@363
+        if( my $out = $tag->{'out'} ) {#@364
+            if( $lang eq 'perl' ) {#@365
+                $outvar = "\$$out";#@366
+            }#@367
+            if( $lang eq 'js' ) {#@368
+                $outvar = "\$$out";#@369
+            }#@370
+        }#@371
+        else {#@372
+            $outvar = $self->{'prev_outvar'} || 'return';#@373
+        }#@374
+        if( my $in = $tag->{'in'} ) {#@376
+            $invar = '' if( $in eq 'direct' );#@377
+        }#@378
+    }#@379
+    else {#@380
+        my $in = $tag->{'in'} || '%_params';#@381
+        if( $in =~ m/^\%(.+)/ ) {#@383
+            my $name = $1;#@384
+            if( $lang eq 'perl' ) {#@385
+                $invar = "\$$name";#@386
+            }#@387
+            if( $lang eq 'js' ) {#@388
+                $invar = $name;#@389
+            }#@390
+        }#@391
+        elsif( $in =~ m/^\$(.+)/ ) {#@392
+            my $name = $1;#@393
+            if( $lang eq 'perl' ) {#@394
+                $invar = "\$${name}->";#@395
+            }#@396
+            if( $lang eq 'js' ) {#@397
+                $invar = $name;#@398
+            }#@399
+        }#@400
+        elsif( $in eq 'direct' ) {#@401
+            $invar = '';#@402
+        }#@403
+        else {#@404
+            if( $lang eq 'perl' ) {#@405
+                $invar = '$'.$in."->";#@406
+            }#@407
+            if( $lang eq 'js' ) {#@408
+                $invar = $in;#@409
+            }#@410
+        }#@411
+        my $out = $tag->{'out'} || 'return';#@414
+        if( $lang eq 'perl' ) {#@416
+            if( $out eq 'return' ) {#@417
+                $outvar = '$out';#@418
+            }#@419
+            else {#@420
+                $outvar = "\$$out";#@421
+            }#@422
+        }#@423
+        if( $lang eq 'js' ) {#@424
+            if( $out eq 'return' ) {#@425
+                $outvar = '$out';#@426
+            }#@427
+            else {#@428
+                $outvar = "$out";#@429
+            }#@430
+        }#@431
+    }#@433
+    if( ( ! defined $invar ) && defined $self->{'prev_invar'} ) {#@434
+        $invar = $self->{'prev_invar'};#@435
+    }#@436
+    if( ! defined $invar ) {#@438
+        print "Invar is not defined:\n";#@439
+        use Data::Dumper;#@440
+        die Dumper( $tag );#@441
+    }#@442
+    $self->{'prev_outvar'} = $outvar;#@444
+    $self->{'prev_invar'} = $invar;#@445
+    my $rawdata = $tag->{'raw'};#@446
+    $rawdata =~ s/||>/]]>/g; # undo hack added to builder to allow cdatas within raw tag blocks#@447
+    return $self->template_to_code( $tag->{'raw'}, $append, $ln, $outvar, $invar );#@448
+}
+sub template_to_code { #@451
+    my $self=shift;
+    my $text = shift;
+    my $append = shift;
+    my $ln = shift;
+    my $outvar = shift;
+    my $invar = shift;
+  my %_params = @_;
+    my $lang = $self->{'lang'};
+    $text =~ s/\*<(.+?)>\*/\%\%\%*<$1>\%\%\%/g; # Split out *<>* tags#@453
+    $text =~ s/\*\{([a-zA-Z0-9_]+)\}/\%\%\%*<var name='$1'\/>\%\%\%/g; # *{[word]} vars ( named template variable )#@454
+    $text =~ s/\*\{\$([a-zA-Z0-9_]+)\}/\%\%\%*<var name='$1' direct=1\/>\%\%\%/g; # *{$[word]} vars ( "direct" local variable usage )#@455
+    $text =~ s/\*\{\!([a-zA-Z0-9_]+)\}/\%\%\%*<dump name='$1'\/>\%\%\%/g; # *{![word]}#@456
+    $text =~ s/\*\{['"]{1,2}([a-zA-Z0-9_]+)\}/\%\%\%*<varq name='$1'\/>\%\%\%/g; # *{''[word]} vars ( they are put in a string )#@457
+    $text =~ s|\*\{if (.+?)\}|\%\%\%*<code><data><![CDATA[if($1){\n]]></data></code>\%\%\%|gs; # *{if [perl if expr]}#@458
+    $text =~ s|\*\{/if\}|\%\%\%*<code><data>}\n</data></code>\%\%\%|gs; # *{/if}#@459
+    $text =~ s|\*\{(.+?)\}\*|\%\%\%*<code><data><![CDATA[$1]]></data></code>\%\%\%|gs; # *{[perl code]}*#@460
+    $text =~ s/(\%\%\%)+/\%\%\%/g; # ensure magic sequence doesn't repeat multiple times in a row#@461
+    my @lines = split(/\n/,$text);#@463
+    my @lines2 = '';#@464
+    my $i = 0;#@465
+    for my $line ( @lines ) {#@466
+        my $lnOff = $ln + $i;#@467
+        push( @lines2, "$line---$lnOff" );#@469
+        $i++;#@470
+    }#@471
+    $text = join("\n",@lines2);#@472
+    my $out;#@479
+    if( $append ) {#@480
+        $out = '';#@481
+    }#@482
+    else {#@483
+        if( $lang eq 'perl' ) {#@484
+            $out = "my $outvar = '';\n";#@485
+        }#@486
+        if( $lang eq 'js' ) {#@487
+            $out = "var $outvar = '';\n";#@488
+        }#@489
+    }#@490
+    my $curLn = $ln;#@491
+    my @parts = split( '%%%', $text );#@492
+    for my $part ( @parts ) {#@493
+        my $partLnMin = 9999;#@494
+        my $partLnMax = 0;#@495
+        my $partLn = '?';#@496
+        if( $part =~ m/---([0-9]+)(\n|$)/ ) {#@499
+            while( $part =~ m/---([0-9]+)(\n|$)/g ) {#@500
+                my $aLn = $1;#@501
+                if( $aLn > $curLn ) {#@502
+                    $curLn = $aLn;#@503
+                }#@504
+                if( $aLn < $partLnMin ) {#@506
+                    $partLnMin = $aLn;#@507
+                }#@508
+                if( $aLn > $partLnMax ) {#@509
+                    $partLnMax = $aLn;#@510
+                }#@511
+            }#@512
+            $part =~ s/---[0-9]+(\n|$)/$1/g;#@513
+        }#@514
+        if( $partLnMin == $partLnMax ) {#@515
+            $partLn = $partLnMin;#@516
+        }#@517
+        else {#@518
+            if( $partLnMin == 9999 && $partLnMax == 0 ) {#@519
+                $partLn = $curLn;#@520
+            }#@521
+            else {#@522
+                $partLn = "$partLnMin-$partLnMax";#@523
+            }#@524
+        }#@525
+        if( $part =~ m/^\*</ ) {#@526
+            $part = substr( $part, 1 ); # strip off initial *#@527
+            my ( $ob, $xml ) = XML::Bare->simple( text => $part );#@528
+            $part =~ s/\n/ -- /g; # strip carriage returns so xml can be shown on one line#@529
+            $part =~ s/]]>/ ]!]>/g;#@530
+            if( $lang eq 'js' ) {#@531
+                $out .= "  // XML: $part //\@$partLn\n";#@532
+            }#@533
+            if( $lang eq 'perl' ) {#@534
+                $out .= "  # XML: $part #\@$partLn\n";#@535
+            }#@536
+            for my $key ( keys %$xml ) {#@537
+                my $node = $xml->{ $key };#@538
+                $out .= $self->run_tpl_tag( $key, $node, $invar, $outvar );#@539
+            }#@540
+        }#@541
+        else {#@542
+            if( $lang eq 'perl' ) {#@543
+                $out .= "  $outvar .= " . $self->escape( $part ) .";\n";#@544
+            }#@545
+            if( $lang eq 'js' ) {#@546
+                $out .= "  $outvar += " . $self->escapeForJS( $part ) .";\n";#@547
+            }#@548
+        }#@549
+    }#@550
+    if( $outvar eq 'return' ) {#@552
+        $out .= "return $outvar;\n";#@553
+    }#@554
+    return $out;#@557
+}
+sub setup_tags { #@?
+    my $self=shift;
+    my $tagsystem = shift;
+  my %_params = @_;
+    my $lang = $_params{'lang'};#@?
+                print 'Setting up tags from module '.__FILE__."\n";#@?
+                $self->{'lang'} = $lang || 'perl';#@?
+            $tagsystem->register_tag(#@?
+                name => 'template_tag',#@?
+                func => \&tag_template_tag,#@?
+                mod => $self,#@?
+                stage => 'normal',#@?
+                type => 'normal'#@?
+            );#@?
+            $tagsystem->register_tag(#@?
+                name => 'template',#@?
+                func => \&tag_template,#@?
+                mod => $self,#@?
+                stage => 'normal2',#@?
+                type => 'raw'#@?
+                , alias => 'tpl'#@?
+            );#@?
+}

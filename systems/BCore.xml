@@ -1,0 +1,39 @@
+
+        <xml>
+            <build_id>081c722e-b8e4-11e7-bbb3-89d00a5e369c</build_id>
+            <name>BCore</name>
+            <package>Builder::Core::</package>
+            <path>/home/user/lumith_builder/prebuilt/Builder/Core</path>
+            <lib>/home/user/lumith_builder/prebuilt</lib>
+            <lang>perl</lang>
+            
+            
+            <mod name='systemx' />
+<mod name='tags' hasTags=1/>
+<mod name='uuid' />
+<mod name='api' hasTags=1/>
+<mod name='templates' hasTags=1/>
+<mod name='conf' />
+<mod name='log' hasTags=1/>
+
+            <version>
+  <sys_name>BCore</sys_name>
+  <inFile lines="27" md5="01e051791ad9bfa2191261c0fba0f450" file="conf/core.xml" />
+  <inFile file="/home/user/lumith_builder/source_core/Tags.pm" md5="d9587913b92cdbca3693c7da626ab046" lines="8" />
+  <inFile lines="558" file="/home/user/lumith_builder/source_core/Templates.pm" md5="b73c247f0f26d3d8552a8eb769e4e21b" />
+  <inFile lines="100" file="/home/user/lumith_builder/source_core/Api.pm" md5="7a35ea54a1d31a0073c4415d756ab333" />
+  <inFile lines="63" md5="302134f069f58ec391a36c43fc0b4520" file="/home/user/lumith_builder/source_core/Log.pm" />
+  <inFile lines="8" file="/home/user/lumith_builder/source_core/UUID.pm" md5="fac43c8b87bdf9c21348dea011961b5e" />
+  <inFile lines="141" file="/home/user/lumith_builder/source_core/Conf.pm" md5="1e58816c4804a8453c33a5459199290c" />
+  <inFile lines="11" file="/home/user/lumith_builder/mod/Systemx.pm" md5="d979a62b74962604fac604fd9dcb7cef" />
+  <outFile lines="8" file="/home/user/lumith_builder/source_core/Tags.pm" md5="d9587913b92cdbca3693c7da626ab046" />
+  <outFile lines="558" file="/home/user/lumith_builder/source_core/Templates.pm" md5="b73c247f0f26d3d8552a8eb769e4e21b" />
+  <outFile file="/home/user/lumith_builder/source_core/Api.pm" md5="7a35ea54a1d31a0073c4415d756ab333" lines="100" />
+  <outFile md5="302134f069f58ec391a36c43fc0b4520" file="/home/user/lumith_builder/source_core/Log.pm" lines="63" />
+  <outFile lines="8" file="/home/user/lumith_builder/source_core/UUID.pm" md5="fac43c8b87bdf9c21348dea011961b5e" />
+  <outFile md5="1e58816c4804a8453c33a5459199290c" file="/home/user/lumith_builder/source_core/Conf.pm" lines="141" />
+  <outFile lines="11" md5="d979a62b74962604fac604fd9dcb7cef" file="/home/user/lumith_builder/mod/Systemx.pm" />
+  <sys_ns>Builder/Core</sys_ns>
+</version>
+
+        </xml>
